@@ -49,20 +49,41 @@ public class TweetController {
 	 * */
 	@PostMapping("/register")
 	public ResponseEntity<?> registerUser(@RequestBody UsersDAO user) {
-		user.setCreatedAt(new Date(System.currentTimeMillis()));
-		userRepo.save(user);
-		kafkaTemplate.send("tweets","User Created For Username :");
-		log.info("User Created For Username ");
-		return new ResponseEntity<UsersDAO>(user,HttpStatus.OK);
+		String email=user.getEmail();
+		if(email!=null && !"".equals(email)){
+			List<UsersDAO> userT=userRepo.findByEmail(email);
+			List<UsersDAO> usernameT=userRepo.findByUsername(user.getUsername());
+			if(userT.isEmpty() && usernameT.isEmpty()) {
+				user.setCreatedAt(new Date(System.currentTimeMillis()));
+				userRepo.save(user);
+				kafkaTemplate.send("tweets","User Created For Username :");
+				log.info("User Created For Username ");
+				return new ResponseEntity<UsersDAO>(user,HttpStatus.OK);
+			}
+			
+		}
+		return new ResponseEntity<UsersDAO>(user,HttpStatus.NOT_ACCEPTABLE);
+		
 	}
 	
-	@GetMapping("/login")
-	public ResponseEntity<?> LoginUser() {
+	@PostMapping("/login")
+	public ResponseEntity<?> LoginUser(@RequestBody UsersDAO user) {
 		
-//		Optional<TweetDAO> tweetResult=tweetRepo.findById(id);
-		log.info("User Trying to log in ");		
-		kafkaTemplate.send("tweets","");
-		return new ResponseEntity<>("Logged In",HttpStatus.OK);
+		String email=user.getEmail();
+		String password=user.getPassword();
+		List<UsersDAO> userT=null;
+		if(email!=null && !"".equals(email)){
+			userT=userRepo.findByEmail(email);
+//			List<UsersDAO> usernameT=userRepo.findByEmail(email);
+			if(!userT.isEmpty() && userT.get(0).getPassword().equals(password)) {
+				
+				kafkaTemplate.send("tweets","User Created For Username :");
+				log.info("User Created For Username ");
+				return new ResponseEntity<UsersDAO>(userT.get(0),HttpStatus.OK);
+			}
+			
+		}
+		return new ResponseEntity<UsersDAO>(HttpStatus.NO_CONTENT);
 	}
 	
 	/*
@@ -190,10 +211,10 @@ public class TweetController {
 			oldTweet.setTweet(tweet.getTweet());
 			oldTweet.setUpdatedAt(new Date(System.currentTimeMillis()));
 			tweetRepo.save(oldTweet);
-			return new ResponseEntity<>("Tweet Updated",HttpStatus.OK);
+			return new ResponseEntity<TweetDAO>(HttpStatus.OK);
 		}
 		else {
-			return new ResponseEntity<>("No Such Tweet",HttpStatus.OK);
+			return new ResponseEntity<TweetDAO>(HttpStatus.OK);
 		}
 
 	}
@@ -206,7 +227,7 @@ public class TweetController {
 		tweetRepo.deleteById(id);
 		log.info("--- Tweet Deleted --- ");
 		kafkaTemplate.send("tweets","Delete tweet");
-		return new ResponseEntity<>("Tweet Deleted",HttpStatus.OK);
+		return new ResponseEntity<TweetDAO>(HttpStatus.OK);
 	}
 	
 	/*
@@ -223,7 +244,7 @@ public class TweetController {
 			tweet.setLikes(tweet.getLikes()+1);
 			tweet.setUpdatedAt(new Date(System.currentTimeMillis()));
 			tweetRepo.save(tweet);
-			return new ResponseEntity<>("Tweet Liked",HttpStatus.OK);
+			return new ResponseEntity<TweetDAO>(HttpStatus.OK);
 		}
 		else {
 			return new ResponseEntity<>("No Such Tweet",HttpStatus.OK);
